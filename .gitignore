@@ -1,1 +1,5 @@
 .DS_Store
+
+# Scratch planning/design notes (not project deliverables)
+/DESIGN_*.md
+/TODO_*.md
