@@ -183,7 +183,7 @@ namespace MurderVilla.Editor
                             new QAPair
                             {
                                 question = "(frowns slightly, doesn't press about the milk) ...Alright. Did you see Coco that night?",
-                                answer = "We didn't really cross paths that night. I think she was in the living room talking with Felix the whole time — I wasn't really paying attention.",
+                                answer = "We didn't really cross paths that night. I think she was in the living room talking with Dean the whole time — I wasn't really paying attention.",
                             },
                         },
                     },
