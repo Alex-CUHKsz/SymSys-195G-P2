@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Investigation;
 using UnityEngine;
 using UnityEngine.UI;
@@ -32,11 +33,18 @@ namespace MurderVilla.InvestigationSystem
 
         private Button openBoardButton;
 
-        private static readonly SuspectId[] SuspectChoices =
-        {
-            SuspectId.None, SuspectId.Amy, SuspectId.Coco, SuspectId.Dean,
-            SuspectId.Ben, SuspectId.Ella,
-        };
+        // Rebuilt each time the board opens, from whichever evidence has
+        // actually been collected — see RefreshOptions(). Index-aligned
+        // with each dropdown's currently shown options.
+        private readonly List<SuspectId> shownDruggerChoices = new();
+        private readonly List<SuspectId> shownKillerChoices = new();
+        private readonly List<LockMethod> shownLockChoices = new();
+
+        // Evidence found beside the milk cup itself is what should make the
+        // player suspicious of Amy; likewise for the other two questions.
+        // Anyone with at least one collected item pointing at them becomes
+        // a selectable suspect, instead of all 5 being offered from the start.
+        private static readonly string[] LockMethodEvidenceIds = { "flat_newspaper" };
 
         private const string GoodEnding =
             "Amy drugged the milk while Ella was away from the kitchen. Once Felix " +
@@ -87,15 +95,111 @@ namespace MurderVilla.InvestigationSystem
             submitButtonLabel.text = ready
                 ? "Submit Final Deduction"
                 : "Question everyone and gather more evidence first";
+
+            RefreshOptions();
         }
+
+        /// <summary>
+        /// Rebuilds each dropdown's options from evidence actually collected
+        /// so far, instead of always listing every suspect/method. A suspect
+        /// only appears once the player has picked up evidence pointing at
+        /// them; "None" is always first so nothing is pre-selected.
+        /// </summary>
+        private void RefreshOptions()
+        {
+            IReadOnlyList<EvidenceEntry> collected = EvidenceLog.Instance != null
+                ? EvidenceLog.Instance.Collected
+                : System.Array.Empty<EvidenceEntry>();
+
+            HashSet<SuspectId> suspectedFrom = new();
+            bool lockMethodUnlocked = false;
+            foreach (EvidenceEntry entry in collected)
+            {
+                suspectedFrom.Add(entry.relatedSuspect);
+                if (System.Array.IndexOf(LockMethodEvidenceIds, entry.id) >= 0)
+                    lockMethodUnlocked = true;
+            }
+
+            FillSuspectDropdown(druggerDropdown, shownDruggerChoices, suspectedFrom);
+            FillSuspectDropdown(killerDropdown, shownKillerChoices, suspectedFrom);
+            FillLockDropdown(lockDropdown, shownLockChoices, lockMethodUnlocked);
+        }
+
+        private void FillSuspectDropdown(Dropdown dropdown, List<SuspectId> shownChoices,
+            HashSet<SuspectId> suspectedFrom)
+        {
+            SuspectId previous = shownChoices.Count > 0 && dropdown.value < shownChoices.Count
+                ? shownChoices[dropdown.value]
+                : SuspectId.None;
+
+            shownChoices.Clear();
+            shownChoices.Add(SuspectId.None);
+            foreach (SuspectId candidate in AllSuspects)
+            {
+                if (suspectedFrom.Contains(candidate))
+                    shownChoices.Add(candidate);
+            }
+
+            dropdown.options.Clear();
+            dropdown.options.Add(new Dropdown.OptionData("Choose..."));
+            for (int i = 1; i < shownChoices.Count; i++)
+                dropdown.options.Add(new Dropdown.OptionData(SuspectNames.DisplayName(shownChoices[i])));
+
+            int restoredIndex = shownChoices.IndexOf(previous);
+            dropdown.value = restoredIndex >= 0 ? restoredIndex : 0;
+            dropdown.RefreshShownValue();
+        }
+
+        private void FillLockDropdown(Dropdown dropdown, List<LockMethod> shownChoices, bool unlocked)
+        {
+            LockMethod previous = shownChoices.Count > 0 && dropdown.value < shownChoices.Count
+                ? shownChoices[dropdown.value]
+                : LockMethod.None;
+
+            shownChoices.Clear();
+            shownChoices.Add(LockMethod.None);
+            dropdown.options.Clear();
+            dropdown.options.Add(new Dropdown.OptionData("Choose..."));
+
+            if (unlocked)
+            {
+                foreach ((LockMethod method, string label) in LockMethodOptions)
+                {
+                    shownChoices.Add(method);
+                    dropdown.options.Add(new Dropdown.OptionData(label));
+                }
+            }
+
+            int restoredIndex = shownChoices.IndexOf(previous);
+            dropdown.value = restoredIndex >= 0 ? restoredIndex : 0;
+            dropdown.RefreshShownValue();
+        }
+
+        private static readonly SuspectId[] AllSuspects =
+        {
+            SuspectId.Amy, SuspectId.Coco, SuspectId.Dean, SuspectId.Ben, SuspectId.Ella,
+        };
+
+        private static readonly (LockMethod method, string label)[] LockMethodOptions =
+        {
+            (LockMethod.AutomaticLock, "The door locked automatically"),
+            (LockMethod.SecretPassage, "The killer used a secret passage"),
+            (LockMethod.LockedFromInside, "Felix locked it from inside"),
+        };
 
         private void OnSubmit()
         {
-            SuspectId drugger = SuspectChoices[druggerDropdown.value];
-            SuspectId killer = SuspectChoices[killerDropdown.value];
-            LockMethod lockMethod = (LockMethod)(lockDropdown.value + 1);
+            if (druggerDropdown.value >= shownDruggerChoices.Count ||
+                killerDropdown.value >= shownKillerChoices.Count ||
+                lockDropdown.value >= shownLockChoices.Count)
+                return;
 
-            if (drugger == SuspectId.None || killer == SuspectId.None)
+            SuspectId drugger = shownDruggerChoices[druggerDropdown.value];
+            SuspectId killer = shownKillerChoices[killerDropdown.value];
+            LockMethod lockMethod = shownLockChoices[lockDropdown.value];
+
+            if (drugger == SuspectId.None || killer == SuspectId.None ||
+                lockMethod == LockMethod.None)
                 return;
 
             bool correct = CaseVerdict.IsCorrect(drugger, killer, lockMethod);
