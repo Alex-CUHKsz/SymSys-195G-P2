@@ -122,6 +122,8 @@ namespace MurderVilla.Editor
         {
             GameObject systems = new("Detective Case Systems");
             systems.AddComponent<EvidenceLog>();
+            systems.AddComponent<Investigation.SuspectInterviewLog>();
+            systems.AddComponent<CaseVerdictUI>();
         }
 
         private static void CreateEvidence(Transform player)
@@ -161,6 +163,22 @@ namespace MurderVilla.Editor
                 Definition("wang_usb", "Dean's Private USB",
                     "The original footage shows Coco going upstairs alone at 22:15.",
                     SuspectId.Dean));
+
+            EvidenceObject("Living-Room Clock", PrimitiveType.Cube, root.transform,
+                PlaceOnFloor(player.position + forward * 5f - right * 3.5f, 0.5f),
+                new Vector3(0.32f, 0.5f, 0.12f), material,
+                Definition("clock", "Living-Room Clock",
+                    "The clock stopped once. Coco's account of the evening jumps " +
+                    "from 22:14 to 22:22 with no explanation for the gap.",
+                    SuspectId.Coco, "curtain_cord"));
+
+            EvidenceObject("Breaker Log", PrimitiveType.Cube, root.transform,
+                PlaceOnFloor(player.position + forward * 9f + right * 3.5f, 0.05f),
+                new Vector3(0.3f, 0.03f, 0.22f), material,
+                Definition("log", "Breaker Log",
+                    "At 22:12 Dean left the living room to deal with a tripped " +
+                    "breaker, leaving Coco unwatched during the murder window.",
+                    SuspectId.Dean, "curtain_cord"));
         }
 
         private static Vector3 PlaceOnFloor(Vector3 around, float height)
@@ -190,7 +208,7 @@ namespace MurderVilla.Editor
         }
 
         private static EvidenceDefinition Definition(string id, string title,
-            string description, SuspectId suspect)
+            string description, SuspectId suspect, string contradictsEvidenceId = null)
         {
             string path = $"{EvidencePath}/{id}.asset";
             EvidenceDefinition definition =
@@ -205,6 +223,7 @@ namespace MurderVilla.Editor
             definition.title = title;
             definition.description = description;
             definition.relatedSuspect = suspect;
+            definition.contradictsEvidenceId = contradictsEvidenceId;
             EditorUtility.SetDirty(definition);
             return definition;
         }
@@ -224,10 +243,10 @@ namespace MurderVilla.Editor
                 new Vector2(24f, -24f), new Vector2(420f, 42f));
 
             Text counter = TextElement(canvasObject.transform, "Evidence Counter",
-                "Evidence: 0 / 4", 18, TextAnchor.UpperLeft);
+                "Evidence: 0 / 6", 18, TextAnchor.UpperLeft);
             SetRect(counter.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(24f, -66f), new Vector2(300f, 34f));
-            counter.gameObject.AddComponent<EvidenceCounterUI>().Configure(counter, 4);
+            counter.gameObject.AddComponent<EvidenceCounterUI>().Configure(counter, 6);
 
             Text prompt = TextElement(canvasObject.transform, "Interaction Prompt",
                 string.Empty, 20, TextAnchor.MiddleCenter);
@@ -238,7 +257,7 @@ namespace MurderVilla.Editor
                 .Configure(interactor, prompt);
 
             Text controls = TextElement(canvasObject.transform, "Controls",
-                "WASD Move  |  Shift Sprint  |  Space Jump  |  Mouse Look  |  E Interact",
+                "WASD Move  |  Shift Sprint  |  Space Jump  |  Mouse Look  |  E Interact  |  V Case Board",
                 15, TextAnchor.LowerLeft);
             controls.color = new Color(1f, 1f, 1f, 0.72f);
             SetRect(controls.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),

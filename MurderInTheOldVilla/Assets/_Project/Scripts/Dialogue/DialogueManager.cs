@@ -118,6 +118,9 @@ namespace MurderVilla.Dialogue
             characterName = speaker.CharacterName;
             branches = speaker.Branches;
 
+            if (!speaker.IsMonologue)
+                Investigation.SuspectInterviewLog.Instance?.RecordConversation(characterName);
+
             if (speaker.IsMonologue)
             {
                 // Monologue mode: no branches needed
